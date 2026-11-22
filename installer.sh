@@ -151,7 +151,7 @@ apt install -y wget curl jq openssl
 install -d -m 755 -o "$target_user" -g "$target_user" /var/www/sub
 
 echo "Запуск установки v2rayA с Xray..."
-if ! sh -c "$(wget -qO- "$V2RAYA_INSTALLER_URL")" @ --with-xray; then
+if ! sudo sh -c "$(wget -qO- https://github.com/v2rayA/v2rayA-installer/raw/main/installer.sh)" @ --with-v2ray; then
   echo "Ошибка при выполнении установщика v2rayA." >&2
   exit 1
 fi
@@ -187,7 +187,7 @@ for file_name in "${!SCRIPTS_SHA256[@]}"; do
   tmp_file="$TMP_DIR/$file_name"
   dest_file="/usr/local/bin/$file_name"
 
-  wget -qO "$tmp_file" "$MY_REPO/$file_name"
+  wget -O "$tmp_file" "$MY_REPO/$file_name"
   if ! check_hash "$file_name" SCRIPTS_SHA256; then
     exit 1
   fi
