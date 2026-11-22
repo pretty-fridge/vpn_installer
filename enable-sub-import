@@ -15,6 +15,7 @@ fi
 done
 
 sed -i "s|__VPNURL__|$reply|g" "/usr/local/bin/sub-convert" || { echo "Error: check if the /usr/local/bin/sub-convert file exist"; exit 1; }
+sed -i "s|#sub-convert|sub-convert|g" "/usr/local/bin/vpntester" || { echo "Error: check if the /usr/local/bin/sub-convert file exist"; exit 1; }
 systemctl enable --now sub-http.service || { "Error: couldn't enable sub-http.service"; exit 1; }
 systemctl enable --now sub-convert.timer || { "Error: couldn't enable sub-convert.timer"; exit 1; }
 

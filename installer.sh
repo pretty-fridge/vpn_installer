@@ -13,10 +13,10 @@ declare -A SYSTEMD_SHA256=(
 )
 declare -A SCRIPTS_SHA256=(
 ["sub-convert"]="0fc8750261ab42b58747d9ef0a104b6ddecbd99c6a01fa22aaacc15ac2a85531"
-["vpntester"]="d1d424890556238020572463c660a0b00e9a7b3f6d33da5245152f666f3eb104"
+["vpntester"]="190ac20c95912e3aa6ae8ec0cf7dba7332ae8bef9c30de81d78ca6da3141c8f2"
 ["example.env"]="5e4969d76e59309ce0d9c94e48e06ba432e8a95c9a88c5f462b06a385f353d63"
 ["RoutingA.txt"]="d73275d8179f79c6b8ebf9f043acf39d9363706f8642ade60947c11597b9f060"
-["enable-sub-import"]="cc4a8229d5abd2043e3782b0d72a4b7da26950a1e0c2994ec5d82b144cb379d8"
+["enable-sub-import"]="ad8b5917bd77ab5ce263c9bf6acc954b260c45d4761af9b4b336e4bca420c33e"
 )
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -119,6 +119,7 @@ set_routinga() {
 
 apt update -y
 apt install -y wget curl jq openssl
+mkdir /var/www/sub
 
 # Определяем, нужен ли sudo
 if ! [ "$(id -u)" -eq 0 ]; then
@@ -126,17 +127,13 @@ if ! [ "$(id -u)" -eq 0 ]; then
     exit 1
 fi
 
-# Проверяем наличие wget
-if ! command -v wget >/dev/null 2>&1; then
-    apt install wget
-fi
 
 echo "Запуск установки v2rayA с Xray..."
 if ! sh -c "$(wget -qO- "$V2RAYA_INSTALLER_URL")" @ --with-xray; then
   echo "Ошибка при выполнении установщика v2rayA." >&2
   exit 1
 fi
-
+sleep 2
 
 #Загрузка и проверка хеша для systemd файлов
 echo "Загружаю и проверяю systemd конфиги"

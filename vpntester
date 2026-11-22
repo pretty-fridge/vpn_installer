@@ -150,7 +150,7 @@ main() {
 	fi
 
 	if ! find_alive; then
-		sub-convert || { echo "VPN provider is unavailable"; return 1; }
+		#sub-convert || { echo "VPN provider is unavailable"; return 1; }
 		sleep 1
 		add_servers
 		update_subscriptions
