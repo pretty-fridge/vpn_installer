@@ -1,0 +1,7 @@
+[Unit]
+Description=Convert subscription for v2rayA
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sub-convert
+[Install]
+WantedBy=multi-user.target

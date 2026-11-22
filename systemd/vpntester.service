@@ -1,0 +1,11 @@
+[Unit]
+Description=Auto selection of an available vpn server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+Group=matrix-notify
+ExecStart=/usr/local/bin/vpntester
+

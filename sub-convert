@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+URL="__VPNURL__"
+HWID="127e7497eb1e40089899af0443676173"
+OUTDIR=/var/www/sub
+mkdir -p "$OUTDIR"
+TMP="$(mktemp)"; trap 'rm -f "$TMP"' EXIT
+
+curl -fsSL --max-time 30 -A "Happ/2.7.0" \
+  -H "x-hwid: $HWID" -H "x-device-os: Linux" \
+  -H "x-ver-os: Ubuntu 24.04" -H "x-device-model: Server" \
+  "$URL" -o "$TMP"
+
+jq -r '
+  .[]
+  | select((.remarks // "") | test("Обход|Россия|ОБХОД";"i") | not)
+  | select(any(.outbounds[]?; .protocol=="vless"))
+  | . as $c
+  | [.outbounds[] | select(.protocol=="vless")] | to_entries[]
+  | .key as $i | .value as $o
+  | $o.settings.vnext[0] as $v | $v.users[0] as $u | $o.streamSettings.realitySettings as $r
+  | "vless://\($u.id)@\($v.address):\($v.port)?encryption=none&flow=\($u.flow // "")&security=reality&sni=\($r.serverName)&fp=\($r.fingerprint // "chrome")&pbk=\($r.publicKey)&sid=\($r.shortId // "")&type=tcp#\((($c.remarks|gsub("\\s+";" ")) + " " + ($i|tostring)) | @uri)"
+' "$TMP" > "$OUTDIR/sub.txt.new"
+
+[ -s "$OUTDIR/sub.txt.new" ] || { echo "ссылки не получились"; exit 1; }
+base64 -w0 "$OUTDIR/sub.txt.new" > "$OUTDIR/sub.txt"
+rm "$OUTDIR/sub.txt.new"
+echo "готово: $(base64 -d "$OUTDIR/sub.txt" | wc -l) серверов"
