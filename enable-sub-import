@@ -1,1 +1,23 @@
 #!/bin/bash
+if ! [ "$(id -u)" -eq 0 ]; then
+    echo "Запустите скрипт с использованием прав sudo" >&2
+    exit 1
+fi
+
+printf "Введите ссылку на vpn подписку. Поддерживаются только подписки, которые начинаются с https://" > /dev/tty
+reply=""
+while [ -z "$reply" ]; do
+read -r reply < /dev/tty || reply=""
+if [[ -z "$reply"  || "$reply" =~ ^https?:// ]]; then
+    echo "Введите корректное значение"
+    continue
+fi
+done
+
+sed -i "s|__VPNURL__|$reply|g" "/usr/local/bin/sub-convert" || { echo "Error: check if the /usr/local/bin/sub-convert file exist"; exit 1; }
+systemctl enable --now sub-http.service || { "Error: couldn't enable sub-http.service"; exit 1; }
+systemctl enable --now sub-convert.timer || { "Error: couldn't enable sub-convert.timer"; exit 1; }
+
+systemctl start sub-convert.service
+
+echo "Настройка успешно завершена, зайдите в v2raya и проверьте корректность импорта подписки"

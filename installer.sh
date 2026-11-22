@@ -16,6 +16,7 @@ declare -A SCRIPTS_SHA256=(
 ["vpntester"]="d1d424890556238020572463c660a0b00e9a7b3f6d33da5245152f666f3eb104"
 ["example.env"]="5e4969d76e59309ce0d9c94e48e06ba432e8a95c9a88c5f462b06a385f353d63"
 ["RoutingA.txt"]="d73275d8179f79c6b8ebf9f043acf39d9363706f8642ade60947c11597b9f060"
+["enable-sub-import"]="cc4a8229d5abd2043e3782b0d72a4b7da26950a1e0c2994ec5d82b144cb379d8"
 )
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
