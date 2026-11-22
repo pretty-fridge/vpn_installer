@@ -187,7 +187,7 @@ for file_name in "${!SCRIPTS_SHA256[@]}"; do
   tmp_file="$TMP_DIR/$file_name"
   dest_file="/usr/local/bin/$file_name"
 
-  wget -O "$tmp_file" "$MY_REPO/$file_name"
+  wget -qO "$tmp_file" "$MY_REPO/$file_name"
   if ! check_hash "$file_name" SCRIPTS_SHA256; then
     exit 1
   fi
