@@ -1,11 +1,12 @@
 #!/bin/bash
 
 API_URL="http://127.0.0.1:2017/api"
+source /etc/home-vpn.env
 
 get_subscriptions() {
 	local response
 
-	if ! response=$(curl -sf "$API_URL/touch" -H "Authorization: Bearer $TOKEN"); then
+	if ! response=$(curl -sf "$API_URL/touch" -H "Authorization: Bearer $V2RAYA_TOKEN"); then
 		echo "Error: curl failed or server returned HTTP error."
 		return 1
 	fi
@@ -16,7 +17,7 @@ get_subscriptions() {
 
 is_running(){
 	local response
-	response=$(curl -sSf "$API_URL/touch" -H "Authorization: Bearer $TOKEN")
+	response=$(curl -sSf "$API_URL/touch" -H "Authorization: Bearer $V2RAYA_TOKEN")
 	jq '.data.running' <<< "$response"
 }
 
@@ -31,7 +32,7 @@ test_connection() {
 
 select_server(){
 	curl -Ssf -X PUT "$API_URL/outboundSelection" \
-	-H "Authorization: Bearer $TOKEN" \
+	-H "Authorization: Bearer $V2RAYA_TOKEN" \
 	-H "Content-Type: application/json" \
 	-d '{"outbound":"proxy","which":{"_type":"subscriptionServer","id":'"$1"',"sub":0,"Link":"","outbound":"proxy"}}' \
 	> /dev/null
@@ -39,15 +40,14 @@ select_server(){
 
 update_subscriptions(){
 	curl -sSf -X PUT "$API_URL/subscription" \
-	-H "Authorization: Bearer $TOKEN" \
+	-H "Authorization: Bearer $V2RAYA_TOKEN" \
 	-H "Content-Type: application/json" \
 	-d '{"_type":"subscription","id":1}' \
 	> /dev/null
 }
 
 send_alert(){
-	local HS TOKEN ROOM TXN ROOM_ENC PAYLOAD
-	source /etc/home-vpn.env
+	local HS ROOM TXN ROOM_ENC PAYLOAD
 
 	ALERT_SERVICE="v2rayA updater"
 	TXN="$(date +%s%N)-$$"
@@ -65,7 +65,7 @@ send_alert(){
 
 disable_vpn(){
 	curl -Ssf -X DELETE "$API_URL/v2ray" \
-	-H "Authorization: Bearer $TOKEN" \
+	-H "Authorization: Bearer $V2RAYA_TOKEN" \
 	-H "Content-Type: application/json" \
 	> /dev/null
 }
@@ -95,6 +95,48 @@ find_alive(){
 	return 1
 }
 
+count_servers() {
+	local response
+
+	response=$(curl -sf "$API_URL/touch" \
+	-H "Authorization: Bearer $V2RAYA_TOKEN")
+
+	jq -r '[.data.touch.subscriptions[]?.servers[]?] | length' <<<"$response"
+}
+
+build_servers_payload() {
+  local n="$1"
+  local outbound="${2:-proxy}"
+  local sub="${3:-0}"
+
+  jq -nc \
+    --arg outbound "$outbound" \
+    --argjson n "$n" \
+    --argjson sub "$sub" '
+    {
+      outbound: $outbound,
+      touches: [
+        range(1; $n + 1) | {
+          id: .,
+          _type: "subscriptionServer",
+          sub: $sub
+        }
+      ]
+    }
+  '
+}
+
+add_servers() {
+	local n=$(count_servers)
+	local payload=$(build_servers_payload "$n")
+
+	curl -sSf -X PUT "$API_URL/outboundConnections" \
+	-H "Authorization: Bearer $V2RAYA_TOKEN" \
+	-H "Content-Type: application/json" \
+	-d "$payload" \
+	> /dev/null
+}
+
 main() {
 
 	if [ "$(is_running)" == "false" ]; then
@@ -109,7 +151,8 @@ main() {
 
 	if ! find_alive; then
 		sub-convert || { echo "VPN provider is unavailable"; return 1; }
-		sleep 2
+		sleep 1
+		add_servers
 		update_subscriptions
 		find_alive || { echo "All VPN servers unavailable, VPN will be disabled"; return 1; }
 	fi

@@ -4,6 +4,21 @@ set -euo pipefail
 V2RAYA_INSTALLER_URL="https://github.com/v2rayA/v2rayA-installer/raw/main/installer.sh"
 MY_REPO="https://raw.githubusercontent.com/pretty-fridge/vpn_installer/main/"
 V2RAYA_URL="http://127.0.0.1:2017"
+declare -A SYSTEMD_SHA256=(
+["sub-convert.service"]="7e6c5224c1e3fcb7535fe8266a5386ced4bb8d4ad5ca89aef5d2e5d116aff9fd"
+["sub-convert.timer"]="d49ff5ad2574460768503b3b2db09d16164b9de7397bedf9dcd6d68b3d224836"
+["sub-http.service"]="57394aeddca15f8969d1c699d27e944d39c742ced9ec4e9a4c8d315fc437ad93"
+["vpntester.service"]="854b82639aa68e415b36b55ac6635510f5da30e018ce5d6b286a51fdfe14649c"
+["vpntester.timer"]="8e9dfc80710a76c23ce38be02bf85e2130617b52c48de393344dcbe495f0443b"
+)
+declare -A SCRIPTS_SHA256=(
+["sub-convert"]="0fc8750261ab42b58747d9ef0a104b6ddecbd99c6a01fa22aaacc15ac2a85531"
+["vpntester"]="d1d424890556238020572463c660a0b00e9a7b3f6d33da5245152f666f3eb104"
+["example.env"]="5e4969d76e59309ce0d9c94e48e06ba432e8a95c9a88c5f462b06a385f353d63"
+["RoutingA.txt"]="d73275d8179f79c6b8ebf9f043acf39d9363706f8642ade60947c11597b9f060"
+)
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 set_matrix_notify() {
   printf "Введите url матрикс сервера, по умолчанию matrix.org" > /dev/tty
@@ -19,7 +34,7 @@ set_matrix_notify() {
       continue
     fi
   done
-  sed -i "s|__MATRIX_USER_TOKEN__|$reply|g" "$1/example.env"
+  sed -i "s|__MATRIX_USER_TOKEN__|$reply|g" "$1"
 
   printf "Введите ID комнаты, в которую будут приходить уведомления"
   reply=""
@@ -30,7 +45,7 @@ set_matrix_notify() {
       continue
     fi
   done
-  sed -i "s|__ROOM_ID__|$reply|g" "$1/example.env"
+  sed -i "s|__ROOM_ID__|$reply|g" "$1"
 }
 
 take_v2raya_token(){
@@ -70,6 +85,36 @@ print_finish_summary() {
   printf 'выполните: %ssudo enable-sub-import%s\n\n' "$cyan" "$reset"
 }
 
+check_hash() {
+  local file_name="$1"
+  local -n hash_name="$2"
+  local expected="${hash_name[$file_name]}"
+  local actual
+
+  tmp_file="$TMP_DIR/$file_name"
+
+  if [ -z "$expected" ]; then
+    echo "Error: expected SHA-256 not found for $file_name in $hash_name" >&2
+    return 1
+  fi
+
+  actual="$(sha256sum "$tmp_file" | awk '{print $1}')"
+
+  if [ "$actual" != "$expected" ]; then
+    echo "Error: SHA-256 checksum mismatch for $file_name" >&2
+    return 1
+  fi
+}
+
+set_routinga() {
+  local ROUTINGA_FILE="$TMP_DIR/RoutingA.txt"
+  local payload=$(jq -nc --rawfile rules "$ROUTING_FILE" '{routingA: $rules}')
+  curl -sSf -X PUT "$V2RAYA_URL/api/routingA" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "$payload" || echo "Не удалось экспортировать RoutingA файл"
+}
+
 
 apt update -y
 apt install -y wget curl jq openssl
@@ -92,30 +137,14 @@ if ! sh -c "$(wget -qO- "$V2RAYA_INSTALLER_URL")" @ --with-xray; then
 fi
 
 
-declare -A EXPECTED_SHA256=(
-["sub-convert.service"]="7e6c5224c1e3fcb7535fe8266a5386ced4bb8d4ad5ca89aef5d2e5d116aff9fd"
-["sub-convert.timer"]="d49ff5ad2574460768503b3b2db09d16164b9de7397bedf9dcd6d68b3d224836"
-["sub-http.service"]="57394aeddca15f8969d1c699d27e944d39c742ced9ec4e9a4c8d315fc437ad93"
-["vpntester.service"]="854b82639aa68e415b36b55ac6635510f5da30e018ce5d6b286a51fdfe14649c"
-["vpntester.timer"]="8e9dfc80710a76c23ce38be02bf85e2130617b52c48de393344dcbe495f0443b"
-)
-
-TMP_DIR="$(mktemp -d)"
-trap 'rm -rf "$TMP_DIR"' EXIT
-
 #Загрузка и проверка хеша для systemd файлов
 echo "Загружаю и проверяю systemd конфиги"
-for file_name in "${EXPECTED_SHA256[@]}"; do
-  expected="${EXPECTED_SHA256[$file_name]}"
+for file_name in "${!EXPECTED_SHA256[@]}"; do
   tmp_file="$TMP_DIR/$file_name"
   dest_file="/etc/systemd/system/$file_name"
 
   wget -qO "$tmp_file" "$MY_REPO/systemd/$file_name"
-
-  actual="$(sha256sum "$tmp_file" | awk '{print $1}')"
-
-  if [ "$actual" != "$expected" ]; then
-    echo "Error: SHA-256 checksum mismatch for $file_name" >&2
+  if ! [ check_hash "$file_name" EXPECTED_SHA256 ]; then
     exit 1
   fi
 
@@ -127,25 +156,15 @@ for file_name in "${EXPECTED_SHA256[@]}"; do
   cp "$tmp_file" "$dest_file"
   chmod 644 "$dest_file"
 done
+echo "Файлы systemd успешно проверены и установлены"
 
-
-declare -A SCRIPTS_SHA256=(
-["sub-convert"]="0fc8750261ab42b58747d9ef0a104b6ddecbd99c6a01fa22aaacc15ac2a85531"
-["vpntester"]="1fa13fafd0d2e340a63652c26cc4dbf15b315e54d39231f1eac81ba3c0f0a7fd"
-["example.env"]="5e4969d76e59309ce0d9c94e48e06ba432e8a95c9a88c5f462b06a385f353d63"
-)
 echo "Загружаю и проверяю скрипты"
 for file_name in "${!SCRIPTS_SHA256[@]}"; do
-  expected="${SCRIPTS_SHA256[$file_name]}"
   tmp_file="$TMP_DIR/$file_name"
   dest_file="/usr/local/bin/$file_name"
 
   wget -qO "$tmp_file" "$MY_REPO/$file_name"
-
-  actual="$(sha256sum "$tmp_file" | awk '{print $1}')"
-
-  if [ "$actual" != "$expected" ]; then
-    echo "Error: SHA-256 checksum mismatch for $file_name" >&2
+  if ! check_hash "$file_name" SCRIPTS_SHA256 ; then
     exit 1
   fi
 
@@ -161,21 +180,34 @@ for file_name in "${!SCRIPTS_SHA256[@]}"; do
         ;;
     esac
 
-    token=$(take_v2raya_token)
+    TOKEN=$(take_v2raya_token)
 
-    if [ -z "$token" ]; then
+    if [ -z "$TOKEN" ]; then
       echo "Error: couldn't get v2raya token"
       exit 1
     fi
     sed -i "s|__V2RAYA_TOKEN__|$token|g" "$tmp_file"
     cp "$tmp_file" "/etc/home-vpn.env"
     chmod 640 "/etc/home-vpn.env"
+  elif [ "$file_name" == "RoutingA.txt" ]; then
+    continue
   else
     cp "$tmp_file" "$dest_file"
     chmod 755 "$dest_file"
+  fi
 done
 
 systemctl daemon-reload
 systemctl enable --now vpntester.timer
+echo "Скрипты успешно проверены и установлены"
+
+echo "Настраиваю конфигурацию v2raya"
+curl -sSf -X PUT "$V2RAYA_URL/api/setting" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"transparent":"pac","transparentType":"tproxy","ipforward":true,"portSharing":false,"tproxyExcludedInterfaces":"docker*,veth*,wg*,ppp*,br-*","tunAutoRoute":true,"tunRouteShellType":"","tunRouteShellPath":"","tunSetupScript":"","tunTeardownScript":"","tunExcludeProcesses":"","pacMode":"routingA","pacAutoUpdateMode":"none","pacAutoUpdateIntervalHour":0,"subscriptionAutoUpdateMode":"auto_update_at_intervals","subscriptionAutoUpdateIntervalHour":1,"proxyModeWhenSubscribe":"proxy","tcpFastOpen":"default","logLevel":"info","inboundSniffing":"http,tls,quic","routeOnly":false,"muxOn":"no","mux":8}' > /dev/null
+
+set_routinga
+echo "Конфигурация v2raya успешно завершена"
 
 print_finish_summary "$V2RAYA_URL" "$ADMIN_USER" "$ADMIN_PASS"

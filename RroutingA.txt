@@ -1,0 +1,66 @@
+default: direct
+#При использовании обычного vpn чаще всего сайт gemini работает не корректно.
+#Чтобы исправить это, вам нужно использовать мобильный прокси в дополнение к вашему впн.
+#Введите вместо mobpool.proxy.market адрес, который даст ваш прокси провайдер,
+#а так же имя пользователя и пароль внутри одинарных кавычек в соответствущих полях ниже
+#и раскомментируйте все строки короторые оканчиваются на -> gemini
+#outbound: gemini = socks(address: mobpool.proxy.market, port: 10000, user: '', pass: '')
+#domain(generativelanguage.googleapis.com, www.googleapis.com, apis.google.com, gemini.google.com) -> gemini
+#domain(geminiweb-pa.clients6.google.com) -> gemini
+
+
+#0. Без впн
+domain(geosite:vk) -> direct
+protocol(bittorrent)-> direct
+domain(matrix.simple-fridge.tech) -> direct
+
+
+# 1. Блокировка QUIC (UDP 443) и аналитики
+port(443) && network(udp) -> block
+domain(geosite: category-ads) -> block
+
+
+# 2. Telegram и GitHub и Матрикс
+domain(geosite:telegram) -> proxy
+ip(geoip:telegram) -> proxy
+domain(geosite:github) -> proxy
+
+
+# 3. YouTube и CDN видеосерверов
+domain(geosite:youtube) -> proxy
+domain(googlevideo.com) -> proxy
+domain(gvt1.com) -> proxy
+domain(ytimg.com) -> proxy
+
+
+# 4. ИИ-сервисы
+domain(geosite:category-ai-!cn)->proxy
+domain(atomic.chat, civitai.com, civitai.red) -> proxy
+
+# 5. Стриминговые сервисы
+domain(geosite:netflix, geosite:disney, geosite:hbo, geosite:primevideo, geosite:spotify, geosite:tiktok)->proxy
+
+# 6. Другие нужные сайты
+domain(bandcamp.com, kde.org, deezer.com, cyberyozh.com) -> proxy
+domain(shodan.io, postgresql.org, nvidia.com) -> proxy
+
+# 7. CDN и инфраструктура
+domain(geosite:cloudflare) -> proxy
+domain(domain:cloudflare) -> proxy
+
+
+# 8. Музыкальные сервисы
+domain(musicbrainz.org) -> proxy
+domain(domain: listenbrainz.org) -> proxy
+
+
+# 9. Социальные сети
+domain(geosite:category-social-media-!cn) -> proxy
+
+
+# 10. Остальные сервисы
+domain(geohide.ru, jetbrains.com, freecad.org, sketchfab.com, 3ds.com,solidworks.com, autodesk.com) -> proxy
+domain(geonix.com, mafioznik.xyz, soundcloud.com, virustotal.com, yoti.com, element.io, app.element.io) -> proxy
+domain(dl.winehq.org, teletype.media, geohide.ru, config.app.element.io, matrix.org, flathub.org) -> proxy
+domain(domain: armbian.com) -> proxy
+domain(geosite: category-porn) -> proxy
