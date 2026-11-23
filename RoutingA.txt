@@ -20,7 +20,7 @@ port(443) && network(udp) -> block
 domain(geosite: category-ads) -> block
 
 
-# 2. Telegram и GitHub и Матрикс
+# 2. Telegram и GitHub
 domain(geosite:telegram) -> proxy
 ip(geoip:telegram) -> proxy
 domain(geosite:github) -> proxy

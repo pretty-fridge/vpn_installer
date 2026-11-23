@@ -1,7 +1,7 @@
 #!/bin/bash
 
-API_URL="http://127.0.0.1:2017/api"
 source /etc/home-vpn.env
+API_URL="$V2RAYA_URL:2017/api"
 
 get_subscriptions() {
 	local response

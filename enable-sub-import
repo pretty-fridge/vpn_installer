@@ -1,17 +1,31 @@
 #!/bin/bash
+
+set_subscription() {
+    source /etc/home-vpn.env
+    local payload
+
+    payload="$(jq -nc --arg u "$V2RAYA_URL:8099/sub.txt" '{url: $u, kind: "subscription"}')"
+    curl -sSf -X PUT "$V2RAYA_URL/api/routingA" \
+    -H "Authorization: Bearer $V2RAYA_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$payload" > /dev/null || echo "Не удалось экспортировать подписку в v2raya" >&2
+}
+
+
 if ! [ "$(id -u)" -eq 0 ]; then
     echo "Запустите скрипт с использованием прав sudo" >&2
     exit 1
 fi
 
-printf "Введите ссылку на vpn подписку. Поддерживаются только подписки, которые начинаются с https://" > /dev/tty
+printf "Введите ссылку на vpn подписку. Поддерживаются только подписки, которые начинаются с https://\n" > /dev/tty
 reply=""
 while [ -z "$reply" ]; do
-read -r reply < /dev/tty || reply=""
-if [[ -z "$reply"  || "$reply" =~ ^https?:// ]]; then
-    echo "Введите корректное значение"
-    continue
-fi
+    read -r reply < /dev/tty || reply=""
+    if [[ -z "$reply"  || ! "$reply" =~ ^https?:// ]]; then
+        echo "Введите корректное значение\n"
+        reply=""
+        continue
+    fi
 done
 
 sed -i "s|__VPNURL__|$reply|g" "/usr/local/bin/sub-convert" || { echo "Error: check if the /usr/local/bin/sub-convert file exist"; exit 1; }

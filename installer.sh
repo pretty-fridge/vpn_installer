@@ -3,7 +3,8 @@ set -euo pipefail
 
 V2RAYA_INSTALLER_URL="https://github.com/v2rayA/v2rayA-installer/raw/main/installer.sh"
 MY_REPO="https://raw.githubusercontent.com/pretty-fridge/vpn_installer/main"
-V2RAYA_URL="http://127.0.0.1:2017"
+source /etc/home-vpn.env
+V2RAYA_URL="$V2RAYA_URL:2017"
 
 declare -A SYSTEMD_SHA256=(
   ["sub-convert.service"]="7e6c5224c1e3fcb7535fe8266a5386ced4bb8d4ad5ca89aef5d2e5d116aff9fd"
@@ -15,10 +16,10 @@ declare -A SYSTEMD_SHA256=(
 
 declare -A SCRIPTS_SHA256=(
   ["sub-convert"]="0fc8750261ab42b58747d9ef0a104b6ddecbd99c6a01fa22aaacc15ac2a85531"
-  ["vpntester"]="190ac20c95912e3aa6ae8ec0cf7dba7332ae8bef9c30de81d78ca6da3141c8f2"
-  ["example.env"]="5e4969d76e59309ce0d9c94e48e06ba432e8a95c9a88c5f462b06a385f353d63"
-  ["RoutingA.txt"]="d73275d8179f79c6b8ebf9f043acf39d9363706f8642ade60947c11597b9f060"
-  ["enable-sub-import"]="ad8b5917bd77ab5ce263c9bf6acc954b260c45d4761af9b4b336e4bca420c33e"
+  ["vpntester"]="ee6870278e1d9774d526bca0465a2058b92a05979e9f34952b9991f895ebe497"
+  ["example.env"]="f88d1273cfbf4c022ff3a023881398430b0abbf1ddf1c41faf9210b6996f4ba0"
+  ["RoutingA.txt"]="9bf656047da2f09b14485400d86e36ce2cf4aac6e877454932f098712394663b"
+  ["enable-sub-import"]="20bd0873301891910ff1f6849cc184142009b1e3c3531528904defe08739b635"
 )
 
 TMP_DIR="$(mktemp -d)"
@@ -28,7 +29,7 @@ set_matrix_notify() {
   local env_file="$1"
   local reply=""
 
-  printf "Введите домен Matrix-сервера [matrix.org]: " > /dev/tty
+  printf "Введите домен Matrix-сервера:\n" > /dev/tty
   read -r reply < /dev/tty || reply=""
   reply="${reply:-matrix.org}"
   reply="${reply#https://}"
@@ -37,7 +38,7 @@ set_matrix_notify() {
 
   reply=""
   while [ -z "$reply" ]; do
-    printf "Введите токен пользователя, от имени которого будут приходить уведомления: " > /dev/tty
+    printf "Введите токен пользователя, от имени которого будут приходить уведомления:\n" > /dev/tty
     read -r reply < /dev/tty || reply=""
     if [ -z "$reply" ]; then
       echo "Введите корректное значение" > /dev/tty
@@ -47,7 +48,7 @@ set_matrix_notify() {
 
   reply=""
   while [ -z "$reply" ]; do
-    printf "Введите ID комнаты, в которую будут приходить уведомления: " > /dev/tty
+    printf "Введите ID комнаты, в которую будут приходить уведомления:\n" > /dev/tty
     read -r reply < /dev/tty || reply=""
     if [ -z "$reply" ]; then
       echo "Введите корректное значение" > /dev/tty
@@ -71,7 +72,7 @@ wait_for_v2raya() {
 take_v2raya_token() {
   local payload response
   payload="$(jq -nc --arg u "$ADMIN_USER" --arg p "$ADMIN_PASS" '{username: $u, password: $p}')"
-  response="$(curl -sS -X POST "$V2RAYA_URL/api/register" \
+  response="$(curl -sS -X POST "$V2RAYA_URL/api/account" \
     -H "Content-Type: application/json" \
     -d "$payload")"
 
@@ -139,7 +140,6 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-# Определяем целевого пользователя (не root)
 target_user="${SUDO_USER:-}"
 if [ -z "$target_user" ] || [ "$target_user" = "root" ]; then
   target_user="$(awk -F: '$3 >= 1000 && $3 < 65534 {print $1; exit}' /etc/passwd || true)"
